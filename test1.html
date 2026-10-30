@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>高中數學 - 特別角三角函數測驗 (16:9 版)</title>
+  <!-- 引入 Tailwind CSS 進行快速排版 -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入 KaTeX 進行數學公式渲染 -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  <!-- 引入 Tone.js 進行音效合成 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+  
+  <style>
+    /* 3D 翻轉效果的 CSS */
+    .perspective { perspective: 2000px; }
+    .transform-style-3d { 
+      transform-style: preserve-3d; 
+      -webkit-transform-style: preserve-3d;
+    }
+    .backface-hidden { 
+      backface-visibility: hidden; 
+      -webkit-backface-visibility: hidden;
+      transform: translateZ(0); /* 修正背面透出問題 */
+    }
+    .rotate-y-180 { transform: rotateY(180deg); }
+    .card-transition { transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); }
+    
+    /* 讓 KaTeX 字體完美置中 */
+    .katex-display { margin: 0 !important; }
+    
+    /* 大螢幕 16:9 滿版背景設定 */
+    body { background: linear-gradient(135deg, #f1f5f9 0%, #cbd5e1 100%); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 font-sans select-none overflow-hidden">
+
+  <!-- 16:9 大螢幕容器 -->
+  <div id="main-container" class="w-full max-w-7xl aspect-video perspective relative">
+    
+    <!-- 翻轉卡片本體 -->
+    <div id="card-inner" class="w-full h-full transform-style-3d card-transition absolute top-0 left-0 rounded-3xl shadow-2xl">
+      
+      <!-- ================= 卡片正面 (題目與選項) ================= -->
+      <div class="absolute w-full h-full backface-hidden bg-slate-100 rounded-3xl border-4 border-slate-300 flex flex-col overflow-hidden">
+        <!-- 5x4 選項網格 -->
+        <div id="options-grid" class="flex-1 grid grid-cols-5 grid-rows-4 gap-4 p-6 bg-slate-200/50">
+          <!-- 這裡的按鈕、題目與統計會由 JavaScript 動態生成 -->
+        </div>
+      </div>
+      
+      <!-- ================= 卡片背面 (對錯結果與正確答案) ================= -->
+      <div class="absolute w-full h-full backface-hidden rotate-y-180 bg-slate-800 rounded-3xl border-4 border-slate-700 flex flex-col overflow-hidden">
+        
+        <!-- 背面上方：計分板與下一題按鈕 -->
+        <div class="h-20 bg-slate-900 flex items-center justify-between px-10 shadow-md z-10">
+          <div class="text-2xl text-slate-300 font-bold tracking-wide">
+            已考 <span id="back-attempted" class="text-blue-400">0</span> / 72 題 
+            <span class="mx-4">|</span> 
+            答對 <span id="back-correct" class="text-green-400">0</span> 題
+          </div>
+          <button onclick="handleNext()" class="bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all text-white font-bold text-2xl py-3 px-8 rounded-xl shadow-lg border-2 border-blue-400">
+            下一題 ➔
+          </button>
+        </div>
+
+        <!-- 背面內容區塊 -->
+        <div class="flex-1 flex flex-row items-center justify-center relative bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-700 to-slate-800">
+          
+          <!-- 左側：圖示與錯誤提示 -->
+          <div class="absolute left-20 flex flex-col items-center justify-center w-80">
+            <div id="result-icon" class="text-[10rem] drop-shadow-xl mb-6 transition-all duration-300"></div>
+            
+            <div id="wrong-answer-container" class="hidden flex-col items-center w-full">
+              <span class="text-2xl text-white bg-red-500/80 px-6 py-2 rounded-full mb-4 shadow-md tracking-widest">你剛才選了：</span>
+              <div id="wrong-answer-content" class="text-5xl text-red-600 bg-white px-8 py-6 rounded-2xl shadow-xl border-4 border-red-400 min-w-[60%] text-center"></div>
+            </div>
+          </div>
+
+          <!-- 正中央：正確答案 -->
+          <div class="flex flex-col items-center justify-center ml-32">
+            <span class="text-4xl text-slate-400 mb-8 font-bold tracking-[0.2em]">正確答案</span>
+            <div id="correct-answer-content" class="text-[9rem] text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.4)]"></div>
+          </div>
+          
+        </div>
+      </div>
+      
+    </div>
+
+    <!-- ================= 測驗完成後的結算畫面 ================= -->
+    <div id="result-screen" class="hidden absolute top-0 left-0 w-full h-full bg-white rounded-3xl shadow-2xl flex-col items-center justify-center z-50">
+      <h2 class="text-6xl font-bold text-gray-800 mb-8">🎉 測驗結束！</h2>
+      <p class="text-4xl mb-12 text-gray-600">最終答對率：<span id="final-score" class="font-bold text-blue-600 text-5xl ml-4"></span></p>
+      <button onclick="location.reload()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold text-3xl py-4 px-12 rounded-2xl shadow-xl hover:scale-105 transition-all">
+        重新測驗
+      </button>
+    </div>
+
+  </div>
+
+  <script>
+    // 1. 建立特別角資料
+    const trigData = {
+      120: { sin: "\\frac{\\sqrt{3}}{2}", cos: "-\\frac{1}{2}", tan: "-\\sqrt{3}" },
+      135: { sin: "\\frac{\\sqrt{2}}{2}", cos: "-\\frac{\\sqrt{2}}{2}", tan: "-1" },
+      150: { sin: "\\frac{1}{2}", cos: "-\\frac{\\sqrt{3}}{2}", tan: "-\\frac{\\sqrt{3}}{3}" },
+      180: { sin: "0", cos: "-1", tan: "0" },
+      210: { sin: "-\\frac{1}{2}", cos: "-\\frac{\\sqrt{3}}{2}", tan: "\\frac{\\sqrt{3}}{3}" },
+      225: { sin: "-\\frac{\\sqrt{2}}{2}", cos: "-\\frac{\\sqrt{2}}{2}", tan: "1" },
+      240: { sin: "-\\frac{\\sqrt{3}}{2}", cos: "-\\frac{1}{2}", tan: "\\sqrt{3}" },
+      270: { sin: "-1", cos: "0", tan: "\\text{不存在}" },
+      300: { sin: "-\\frac{\\sqrt{3}}{2}", cos: "\\frac{1}{2}", tan: "-\\sqrt{3}" },
+      315: { sin: "-\\frac{\\sqrt{2}}{2}", cos: "\\frac{\\sqrt{2}}{2}", tan: "-1" },
+      330: { sin: "-\\frac{1}{2}", cos: "\\frac{\\sqrt{3}}{2}", tan: "-\\frac{\\sqrt{3}}{3}" },
+      360: { sin: "0", cos: "1", tan: "0" }
+    };
+
+    // 所有不重複的選項 (共 14 種)
+    const uniqueOptions = [
+      "0", "\\text{不存在}", 
+      "1", "-1",
+      "\\frac{1}{2}", "\\frac{\\sqrt{2}}{2}", "-\\frac{\\sqrt{2}}{2}", "\\frac{\\sqrt{3}}{2}", "-\\frac{\\sqrt{3}}{2}",
+      "-\\frac{1}{2}", "\\sqrt{3}", "-\\sqrt{3}", "\\frac{\\sqrt{3}}{3}", "-\\frac{\\sqrt{3}}{3}"
+    ];
+
+    const angles = [120, 135, 150, 180, 210, 225, 240, 270, 300, 315, 330, 360];
+    let pool = [];
+
+    // 產生 36 個不重複的題庫
+    angles.forEach(angle => {
+      pool.push({ q: `\\sin ${angle}^\\circ`, a: trigData[angle].sin });
+      pool.push({ q: `\\cos ${angle}^\\circ`, a: trigData[angle].cos });
+      pool.push({ q: `\\tan ${angle}^\\circ`, a: trigData[angle].tan });
+    });
+
+    // 產生 72 題 (將 36 題庫完整複製兩份)
+    let quiz = [...pool, ...pool];
+
+    // 將題目洗牌 (Fisher-Yates Shuffle)
+    for (let i = quiz.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [quiz[i], quiz[j]] = [quiz[j], quiz[i]];
+    }
+
+    // 2. 狀態管理
+    let currentIndex = 0;
+    let attempted = 0;
+    let correct = 0;
+    let isFlipped = false;
+    let isAnimating = false;
+    const totalQuestions = 72;
+
+    const cardInner = document.getElementById('card-inner');
+
+    // 3. 初始化渲染
+    window.onload = () => {
+      buildFrontGrid();
+      setTimeout(renderCurrentQuestion, 100);
+    };
+
+    // 建立正面的 5x4 網格
+    function buildFrontGrid() {
+      const optionsGrid = document.getElementById('options-grid');
+      optionsGrid.innerHTML = ''; // 清空確保安全
+      let optIdx = 0;
+      
+      for (let i = 0; i < 16; i++) {
+        if (i === 1) {
+          // 第一列，中間3格放統計資料
+          const statsDiv = document.createElement('div');
+          statsDiv.className = 'col-span-3 flex items-center justify-center bg-slate-800 text-white rounded-2xl shadow-md text-2xl font-bold tracking-widest';
+          statsDiv.innerHTML = `已考 <span id="front-attempted" class="text-blue-400 mx-3">0</span> / 72 題 <span class="mx-6">|</span> 答對 <span id="front-correct" class="text-green-400 mx-3">0</span> 題`;
+          optionsGrid.appendChild(statsDiv);
+        } else if (i === 4) {
+          // 第二列，中間3格放題目
+          const centerDiv = document.createElement('div');
+          centerDiv.id = 'front-question';
+          /* 移除了原本的 z-10，這是導致部分瀏覽器 3D 穿透背面的主因 */
+          centerDiv.className = 'col-span-3 flex items-center justify-center text-7xl bg-white text-blue-900 rounded-3xl shadow-[0_0_30px_rgba(59,130,246,0.3)] border-8 border-blue-400';
+          optionsGrid.appendChild(centerDiv);
+        } else {
+          // 其餘 14 格填入不重複選項
+          const btn = document.createElement('button');
+          const currentOpt = uniqueOptions[optIdx];
+          
+          btn.className = 'bg-white hover:bg-blue-50 hover:border-blue-300 active:scale-95 border-2 border-gray-300 rounded-2xl flex items-center justify-center text-4xl shadow-sm transition-all duration-200 group';
+          btn.onclick = () => checkAnswer(currentOpt);
+          
+          // 為 KaTeX 保留一個容器，避免按鈕的 padding 影響渲染
+          const mathContainer = document.createElement('div');
+          mathContainer.className = 'group-hover:scale-110 transition-transform duration-200';
+          btn.appendChild(mathContainer);
+          
+          optionsGrid.appendChild(btn);
+          
+          // 渲染數學選項
+          katex.render(currentOpt, mathContainer, { displayMode: true });
+          optIdx++;
+        }
+      }
+    }
+
+    function renderCurrentQuestion() {
+      if (currentIndex >= totalQuestions) {
+        showResults();
+        return;
+      }
+      const currentQ = quiz[currentIndex];
+      // 渲染題目
+      katex.render(currentQ.q, document.getElementById('front-question'), { displayMode: true });
+    }
+
+    // 4. 檢查答案與翻轉邏輯
+    function checkAnswer(selectedOpt) {
+      if (isAnimating || isFlipped || currentIndex >= totalQuestions) return;
+      isAnimating = true;
+
+      const currentQ = quiz[currentIndex];
+      const isCorrect = (selectedOpt === currentQ.a);
+
+      // 播放音效
+      playSound(isCorrect);
+
+      // 更新計分
+      attempted++;
+      if (isCorrect) correct++;
+      
+      document.getElementById('back-attempted').innerText = attempted;
+      document.getElementById('back-correct').innerText = correct;
+      document.getElementById('front-attempted').innerText = attempted;
+      document.getElementById('front-correct').innerText = correct;
+
+      // 設定反面內容
+      const iconEl = document.getElementById('result-icon');
+      const wrongContainer = document.getElementById('wrong-answer-container');
+      const wrongContent = document.getElementById('wrong-answer-content');
+
+      if (isCorrect) {
+        iconEl.innerText = "👍";
+        wrongContainer.classList.add('hidden');
+      } else {
+        iconEl.innerText = "😭";
+        wrongContainer.classList.remove('hidden');
+        // 渲染使用者選錯的答案
+        katex.render(selectedOpt, wrongContent, { displayMode: true });
+      }
+
+      // 渲染正確答案
+      katex.render(currentQ.a, document.getElementById('correct-answer-content'), { displayMode: true });
+
+      // 執行翻牌
+      isFlipped = true;
+      cardInner.classList.add('rotate-y-180');
+      
+      // 動畫鎖定解除，讓使用者可以按下一題
+      setTimeout(() => { isAnimating = false; }, 600);
+    }
+
+    // 5. 下一題邏輯
+    function handleNext() {
+      if (isAnimating) return;
+      isAnimating = true;
+
+      // 翻轉回正面
+      cardInner.classList.remove('rotate-y-180');
+      isFlipped = false;
+
+      // 等待翻轉動畫接近完成 (500ms) 後，再更換新題目文字，避免視覺穿幫
+      setTimeout(() => {
+        currentIndex++;
+        renderCurrentQuestion();
+        isAnimating = false;
+      }, 500);
+    }
+
+    // 6. 測驗結束畫面
+    function showResults() {
+      cardInner.style.display = 'none';
+      const resultScreen = document.getElementById('result-screen');
+      resultScreen.classList.remove('hidden');
+      resultScreen.classList.add('flex');
+      
+      const percentage = Math.round((correct / totalQuestions) * 100);
+      document.getElementById('final-score').innerText = `${correct} / ${totalQuestions} (${percentage}%)`;
+    }
+
+    // 7. 音效播放邏輯 (使用 Tone.js)
+    async function playSound(isCorrect) {
+      // 確保 AudioContext 已啟動 (瀏覽器安全性要求)
+      if (Tone.context.state !== 'running') {
+        await Tone.start();
+      }
+      const now = Tone.now();
+
+      if (isCorrect) {
+        // 答對：播放成功和弦 + 模擬掌聲的粉紅噪音
+        const synth = new Tone.PolySynth(Tone.Synth).toDestination();
+        synth.volume.value = -8;
+        synth.triggerAttackRelease(["C4", "E4", "G4", "C5"], "8n", now);
+        
+        const noise = new Tone.Noise("pink");
+        const noiseFilter = new Tone.Filter(800, "lowpass");
+        const noiseEnv = new Tone.AmplitudeEnvelope({
+          attack: 0.1, decay: 0.2, sustain: 0.4, release: 1.5
+        }).toDestination();
+        
+        noise.chain(noiseFilter, noiseEnv);
+        noise.start(now);
+        noiseEnv.triggerAttackRelease("2n", now);
+      } else {
+        // 答錯：喔喔聲 (Uh-oh)，兩個下行音符
+        const synth = new Tone.Synth({
+          oscillator: { type: "triangle" },
+          envelope: { attack: 0.05, decay: 0.1, sustain: 0.5, release: 0.5 }
+        }).toDestination();
+        synth.volume.value = -6;
+        
+        synth.triggerAttackRelease("Eb4", "16n", now);
+        synth.triggerAttackRelease("C4", "4n", now + 0.25);
+      }
+    }
+  </script>
+</body>
+</html>

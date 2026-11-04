@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>三角函數配對測驗</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f3f4f6;
+        }
+
+        /* Responsive Container - Fixed for iframe compatibility */
+        #app-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            border: 4px solid #bbf7d0;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+        }
+
+        /* Math Grid Background */
+        .math-bg {
+            position: absolute;
+            inset: 0;
+            background-image: radial-gradient(#22c55e 1.5px, transparent 1.5px);
+            background-size: 30px 30px;
+            opacity: 0.08;
+            pointer-events: none;
+        }
+
+        /* Math Typography */
+        .math-text {
+            font-family: 'Georgia', serif;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            color: #1e293b;
+        }
+        .q-text { font-size: 1.8rem; }
+        .a-text { font-size: 1.4rem; }
+        .math-text i { font-style: italic; }
+
+        /* Button Styles */
+        .game-btn {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: white;
+            border: 3px solid #cbd5e1;
+            border-radius: 1rem;
+            box-shadow: 0 6px 0 #94a3b8;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.15s ease;
+        }
+        .game-btn:active:not(.answered):not(.selected) {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #94a3b8;
+        }
+        /* 圈選到的特效 (綠色浮凸立體按鈕色、加陰影) */
+        .game-btn.selected {
+            background: linear-gradient(180deg, #dcfce7, #86efac);
+            border-color: #22c55e;
+            box-shadow: 0 6px 0 #166534, 0 10px 15px rgba(0,0,0,0.15);
+            transform: translateY(-4px);
+            z-index: 35;
+        }
+        .game-btn.selected .math-text {
+            color: #064e3b;
+        }
+        /* 已答題樣式 */
+        .game-btn.answered {
+            background: #f1f5f9;
+            border-color: #e2e8f0;
+            box-shadow: 0 2px 0 #e2e8f0;
+            transform: translateY(4px);
+            cursor: default;
+            opacity: 0.6;
+        }
+        .game-btn.answered .math-text {
+            color: #94a3b8;
+        }
+
+        /* Canvas for connecting lines */
+        #lines-canvas {
+            position: absolute;
+            inset: 0;
+            z-index: 20;
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Top Bar */
+        .top-bar {
+            flex: 0 0 12%;
+            background: rgba(255, 255, 255, 0.9);
+            border-bottom: 2px solid #dcfce7;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Game Area */
+        .game-area {
+            flex: 1;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Bottom Bar */
+        .bottom-bar {
+            flex: 0 0 12%;
+            background: rgba(255, 255, 255, 0.95);
+            border-top: 2px solid #dcfce7;
+            position: relative;
+            z-index: 10;
+        }
+
+        /* Next Button */
+        .next-btn {
+            background: #2563eb;
+            color: white;
+            border-radius: 9999px;
+            box-shadow: 0 6px 0 #1e40af;
+            transition: all 0.15s;
+            border: 2px solid #60a5fa;
+        }
+        .next-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 0 #1e3a8a;
+            background: #1d4ed8;
+        }
+        .next-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #1e3a8a;
+        }
+
+        /* Answer Button */
+        .ans-btn {
+            background: #eab308;
+            color: white;
+            border-radius: 9999px;
+            box-shadow: 0 6px 0 #a16207;
+            transition: all 0.15s;
+            border: 2px solid #facc15;
+            display: none;
+        }
+        .ans-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 0 #854d0e;
+            background: #ca8a04;
+        }
+        .ans-btn:active {
+            transform: translateY(4px);
+            box-shadow: 0 2px 0 #854d0e;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="app-container">
+        <div class="math-bg"></div>
+
+        <!-- Top Header -->
+        <div class="top-bar w-full flex justify-between items-center px-8 shadow-sm">
+            <h1 class="text-2xl font-black text-green-800 tracking-wider">
+                現在第 <span id="ui-round" class="text-blue-600 text-3xl">1</span> 題 / 共 10 題 
+                <span class="text-lg text-gray-500 ml-4">(已答對 <span id="ui-correct">0</span> 題)</span>
+            </h1>
+            <h2 class="text-2xl font-black text-blue-600 tracking-wider">
+                得分：<span id="ui-score" class="text-4xl text-blue-700">0</span>
+            </h2>
+        </div>
+
+        <!-- Game Canvas Area -->
+        <div class="game-area w-full flex justify-between px-16 py-4 gap-12">
+            <canvas id="lines-canvas"></canvas>
+
+            <!-- Left column: 4 Questions -->
+            <div id="questions-container" class="w-[45%] flex flex-col justify-around gap-6 h-full z-30 relative py-12">
+                <!-- Dynamically populated -->
+            </div>
+
+            <!-- Right column: 8 Options -->
+            <div id="answers-container" class="w-[30%] flex flex-col justify-between gap-3 h-full z-30 relative">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+
+        <!-- Bottom Footer Area -->
+        <div class="bottom-bar w-full flex justify-center items-center shadow-md">
+            <div id="message-area" class="text-3xl font-black text-green-700 hidden items-center justify-center gap-6 w-full h-full">
+                <span id="status-text">🎉 配對成功！</span>
+                <button id="show-ans-btn" class="ans-btn px-8 py-2 text-xl font-bold ml-4">
+                    看一下答案 👀
+                </button>
+                <button id="next-btn" class="next-btn px-8 py-2 text-xl font-bold ml-4">
+                    進入下一題測驗 ➔
+                </button>
+            </div>
+        </div>
+
+        <!-- Emoji Layer -->
+        <div id="emoji-layer" class="absolute inset-0 pointer-events-none z-50 overflow-hidden"></div>
+    </div>
+
+    <script>
+        /* 48 Formulas from the 8 images */
+        const rawData = [
+            ["sin(180° - θ)", "sin", 1], ["cos(180° - θ)", "cos", -1], ["tan(180° - θ)", "tan", -1], ["cot(180° - θ)", "cot", -1], ["sec(180° - θ)", "sec", -1], ["csc(180° - θ)", "csc", 1],
+            ["sin(n × 360° + θ)", "sin", 1], ["cos(n × 360° + θ)", "cos", 1], ["tan(n × 360° + θ)", "tan", 1], ["cot(n × 360° + θ)", "cot", 1], ["sec(n × 360° + θ)", "sec", 1], ["csc(n × 360° + θ)", "csc", 1],
+            ["sin(180° + θ)", "sin", -1], ["cos(180° + θ)", "cos", -1], ["tan(180° + θ)", "tan", 1], ["cot(180° + θ)", "cot", 1], ["sec(180° + θ)", "sec", -1], ["csc(180° + θ)", "csc", -1],
+            ["sin(-θ)", "sin", -1], ["cos(-θ)", "cos", 1], ["tan(-θ)", "tan", -1], ["cot(-θ)", "cot", -1], ["sec(-θ)", "sec", 1], ["csc(-θ)", "csc", -1],
+            ["sin(90° + θ)", "cos", 1], ["cos(90° + θ)", "sin", -1], ["tan(90° + θ)", "cot", -1], ["cot(90° + θ)", "tan", -1], ["sec(90° + θ)", "csc", -1], ["csc(90° + θ)", "sec", 1],
+            ["sin(90° - θ)", "cos", 1], ["cos(90° - θ)", "sin", 1], ["tan(90° - θ)", "cot", 1], ["cot(90° - θ)", "tan", 1], ["sec(90° - θ)", "csc", 1], ["csc(90° - θ)", "sec", 1],
+            ["sin(270° - θ)", "cos", -1], ["cos(270° - θ)", "sin", -1], ["tan(270° - θ)", "cot", 1], ["cot(270° - θ)", "tan", 1], ["sec(270° - θ)", "csc", -1], ["csc(270° - θ)", "sec", -1],
+            ["sin(270° + θ)", "cos", -1], ["cos(270° + θ)", "sin", 1], ["tan(270° + θ)", "cot", -1], ["cot(270° + θ)", "tan", -1], ["sec(270° + θ)", "csc", 1], ["csc(270° + θ)", "sec", -1]
+        ];
+
+        // Game State
+        const TOTAL_ROUNDS = 10;
+        let currentRound = 1;
+        let score = 0;
+        let totalCorrectOverall = 0;
+        let roundQuestions = [];
+        let roundOptions = [];
+        let connections = [];
+        let answeredQuestions = new Set();
+        let roundErrors = 0; // Tracks mistakes in the current round
+        
+        let selectedQIndex = null;
+        let selectedAIndex = null;
+
+        // Audio Context (Initialize on first interaction)
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playTone(freq, type, duration, vol=0.1, startTime=0) {
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime + startTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime + startTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + startTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(audioCtx.currentTime + startTime);
+            osc.stop(audioCtx.currentTime + startTime + duration);
+        }
+
+        function playSuccessSound() {
+            playTone(523.25, 'sine', 0.15, 0.15, 0); // C5
+            playTone(659.25, 'sine', 0.15, 0.15, 0.1); // E5
+            playTone(783.99, 'sine', 0.3, 0.15, 0.2); // G5
+        }
+
+        function playErrorSound() {
+            playTone(250, 'sawtooth', 0.15, 0.05, 0);
+            playTone(200, 'sawtooth', 0.3, 0.05, 0.15);
+        }
+
+        // Format math strings elegantly
+        function formatMath(str) {
+            return str
+                .replace(/θ/g, '<i>θ</i>')
+                .replace(/°/g, '&deg;')
+                .replace(/×/g, '&times;')
+                .replace(/n/g, '<i>n</i>');
+        }
+
+        // Start a new Round
+        function startRound() {
+            connections = [];
+            answeredQuestions.clear();
+            roundErrors = 0;
+            selectedQIndex = null;
+            selectedAIndex = null;
+            document.getElementById('message-area').classList.add('hidden');
+            document.getElementById('message-area').classList.remove('flex');
+            updateUI();
+            
+            // 1. Guarantee 8 distinct options by picking 4 unique base functions
+            const bases = ["sin", "cos", "tan", "cot", "sec", "csc"];
+            const shuffledBases = bases.sort(() => 0.5 - Math.random()).slice(0, 4);
+
+            // 2. Select 1 random question for each chosen base
+            roundQuestions = [];
+            shuffledBases.forEach((base, idx) => {
+                const candidates = rawData.filter(q => q[1] === base);
+                const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+                roundQuestions.push({ id: idx, text: chosen[0], base: chosen[1], sign: chosen[2] });
+            });
+
+            // 3. Generate exactly 4 correct and 4 false (negative) options
+            roundOptions = [];
+            roundQuestions.forEach(q => {
+                const correctStr = (q.sign === 1 ? "" : "-") + q.base + " θ";
+                const incorrectStr = (q.sign === 1 ? "-" : "") + q.base + " θ";
+                
+                roundOptions.push({ id: `a_correct_${q.id}`, targetQ: q.id, text: correctStr, isCorrect: true });
+                roundOptions.push({ id: `a_wrong_${q.id}`, targetQ: q.id, text: incorrectStr, isCorrect: false });
+            });
+
+            // Shuffle options
+            roundOptions.sort(() => 0.5 - Math.random());
+
+            renderBoard();
+            drawLines();
+        }
+
+        function renderBoard() {
+            const qContainer = document.getElementById('questions-container');
+            const aContainer = document.getElementById('answers-container');
+            
+            qContainer.innerHTML = '';
+            roundQuestions.forEach((q, idx) => {
+                const btn = document.createElement('div');
+                btn.id = `q-${idx}`;
+                btn.className = 'game-btn flex-1 w-full';
+                btn.innerHTML = `<span class="math-text q-text">${formatMath(q.text)}</span>`;
+                btn.onclick = () => selectQuestion(idx);
+                qContainer.appendChild(btn);
+            });
+
+            aContainer.innerHTML = '';
+            roundOptions.forEach((opt, idx) => {
+                const btn = document.createElement('div');
+                btn.id = `a-${idx}`;
+                btn.className = 'game-btn flex-1 w-full';
+                btn.innerHTML = `<span class="math-text a-text">${formatMath(opt.text)}</span>`;
+                btn.onclick = () => selectAnswer(idx);
+                aContainer.appendChild(btn);
+            });
+        }
+
+        function selectQuestion(idx) {
+            initAudio();
+            if (answeredQuestions.has(idx)) return;
+            
+            if (selectedQIndex !== null) {
+                document.getElementById(`q-${selectedQIndex}`).classList.remove('selected');
+            }
+            selectedQIndex = idx;
+            document.getElementById(`q-${idx}`).classList.add('selected');
+
+            if (selectedAIndex !== null) setTimeout(checkMatch, 100);
+        }
+
+        function selectAnswer(idx) {
+            initAudio();
+            if (selectedAIndex !== null) {
+                document.getElementById(`a-${selectedAIndex}`).classList.remove('selected');
+            }
+            selectedAIndex = idx;
+            document.getElementById(`a-${idx}`).classList.add('selected');
+
+            if (selectedQIndex !== null) setTimeout(checkMatch, 100);
+        }
+
+        function checkMatch() {
+            if (selectedQIndex === null || selectedAIndex === null) return;
+
+            const q = roundQuestions[selectedQIndex];
+            const a = roundOptions[selectedAIndex];
+            const isMatch = (a.targetQ === q.id && a.isCorrect);
+
+            const qEl = document.getElementById(`q-${selectedQIndex}`);
+            const aEl = document.getElementById(`a-${selectedAIndex}`);
+
+            if (isMatch) {
+                playSuccessSound();
+                showEmoji('👏');
+                connections.push({ qId: selectedQIndex, aId: selectedAIndex, type: 'correct' });
+            } else {
+                playErrorSound();
+                showEmoji('😭');
+                roundErrors++;
+                // Draw line to the user's wrong answer
+                connections.push({ qId: selectedQIndex, aId: selectedAIndex, type: 'userWrong' });
+            }
+
+            answeredQuestions.add(selectedQIndex);
+            
+            // Visual Updates
+            qEl.classList.remove('selected');
+            qEl.classList.add('answered');
+            aEl.classList.remove('selected');
+            
+            selectedQIndex = null;
+            selectedAIndex = null;
+            
+            updateUI();
+            drawLines();
+
+            if (answeredQuestions.size === 4) {
+                // Award points only if all 4 sub-questions are perfectly matched
+                if (roundErrors === 0) {
+                    score += 10;
+                    totalCorrectOverall++;
+                    updateUI();
+                }
+                setTimeout(handleRoundEnd, 600);
+            }
+        }
+
+        function showEmoji(emoji) {
+            const layer = document.getElementById('emoji-layer');
+            const el = document.createElement('div');
+            el.innerHTML = emoji;
+            el.className = `absolute text-7xl transition-all duration-700 ease-out z-50 drop-shadow-2xl`;
+            el.style.left = '50%';
+            el.style.top = '50%';
+            el.style.transform = 'translate(-50%, -50%) scale(0.5)';
+            el.style.opacity = '1';
+            
+            layer.appendChild(el);
+            
+            // Trigger animation
+            requestAnimationFrame(() => {
+                el.style.transform = `translate(-50%, -150%) scale(2) rotate(${Math.random()*40-20}deg)`;
+                el.style.opacity = '0';
+            });
+
+            setTimeout(() => el.remove(), 700);
+        }
+
+        function drawLines() {
+            const canvas = document.getElementById('lines-canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const canvasRect = canvas.getBoundingClientRect();
+
+            connections.forEach(conn => {
+                const qEl = document.getElementById(`q-${conn.qId}`);
+                const aEl = document.getElementById(`a-${conn.aId}`);
+                if (!qEl || !aEl) return;
+
+                const qRect = qEl.getBoundingClientRect();
+                const aRect = aEl.getBoundingClientRect();
+
+                // Coordinates relative to canvas
+                const startX = qRect.right - canvasRect.left;
+                const startY = qRect.top + (qRect.height / 2) - canvasRect.top;
+                const endX = aRect.left - canvasRect.left;
+                const endY = aRect.top + (aRect.height / 2) - canvasRect.top;
+
+                ctx.beginPath();
+                ctx.moveTo(startX, startY);
+                // Bezier curve for an elegant smooth line
+                ctx.bezierCurveTo(startX + (endX - startX)/2, startY, startX + (endX - startX)/2, endY, endX, endY);
+
+                if (conn.type === 'correct') {
+                    ctx.strokeStyle = '#3b82f6'; // Blue for correct
+                    ctx.lineWidth = 5;
+                    ctx.setLineDash([]);
+                    ctx.globalAlpha = 1.0;
+                } else if (conn.type === 'userWrong') {
+                    ctx.strokeStyle = '#ef4444'; // Red dashed for incorrect
+                    ctx.lineWidth = 4;
+                    ctx.setLineDash([10, 10]);
+                    ctx.globalAlpha = 0.6; // 60% transparent
+                } else if (conn.type === 'showCorrect') {
+                    ctx.strokeStyle = '#000000'; // Black solid for showing answers
+                    ctx.lineWidth = 5;
+                    ctx.setLineDash([]);
+                    ctx.globalAlpha = 1.0;
+                }
+                ctx.stroke();
+            });
+        }
+
+        function updateUI() {
+            document.getElementById('ui-round').innerText = Math.min(currentRound, TOTAL_ROUNDS);
+            document.getElementById('ui-correct').innerText = totalCorrectOverall;
+            document.getElementById('ui-score').innerText = score;
+        }
+
+        function handleRoundEnd() {
+            const msgArea = document.getElementById('message-area');
+            const statusText = document.getElementById('status-text');
+            const showAnsBtn = document.getElementById('show-ans-btn');
+            const nextBtn = document.getElementById('next-btn');
+            
+            msgArea.classList.remove('hidden');
+            msgArea.classList.add('flex');
+
+            // Setup Next Button behavior
+            nextBtn.onclick = () => {
+                if (currentRound < TOTAL_ROUNDS) {
+                    currentRound++;
+                    startRound();
+                } else {
+                    statusText.innerHTML = `🏆 測驗完成！總共答對 ${totalCorrectOverall} 題，總得分：${score}`;
+                    showAnsBtn.style.display = "none";
+                    nextBtn.style.display = "none";
+                }
+            };
+
+            // Setup Show Answers Button behavior
+            showAnsBtn.onclick = showAnswers;
+
+            if (roundErrors > 0) {
+                statusText.innerHTML = "喔喔！有些配對錯誤喔。";
+                statusText.className = "text-red-600";
+                showAnsBtn.style.display = "block";
+                nextBtn.style.display = "none";
+            } else {
+                statusText.innerHTML = "🎉 完美配對成功！";
+                statusText.className = "text-green-700";
+                showAnsBtn.style.display = "none";
+                
+                if (currentRound < TOTAL_ROUNDS) {
+                    nextBtn.style.display = "block";
+                    nextBtn.innerText = "進入下一題測驗 ➔";
+                } else {
+                    statusText.innerHTML = `🏆 測驗完成！總共答對 ${totalCorrectOverall} 題，總得分：${score}`;
+                    nextBtn.style.display = "none";
+                }
+            }
+        }
+
+        function showAnswers() {
+            const statusText = document.getElementById('status-text');
+            const showAnsBtn = document.getElementById('show-ans-btn');
+            const nextBtn = document.getElementById('next-btn');
+
+            // Draw correct answers only for the questions the user got wrong, preserving original lines
+            roundQuestions.forEach((q, idx) => {
+                const hasError = connections.some(conn => conn.qId === idx && conn.type === 'userWrong');
+                if (hasError) {
+                    const correctAIndex = roundOptions.findIndex(opt => opt.targetQ === q.id && opt.isCorrect);
+                    connections.push({ qId: idx, aId: correctAIndex, type: 'showCorrect' });
+                }
+            });
+            drawLines();
+
+            statusText.innerHTML = "👀 這是正確解答：";
+            statusText.className = "text-blue-700";
+            showAnsBtn.style.display = "none";
+            
+            if (currentRound < TOTAL_ROUNDS) {
+                nextBtn.style.display = "block";
+                nextBtn.innerText = "進入下一題測驗 ➔";
+            } else {
+                nextBtn.style.display = "block";
+                nextBtn.innerText = "看最終成績 ➔";
+                nextBtn.onclick = () => {
+                    statusText.innerHTML = `🏆 測驗完成！總共答對 ${totalCorrectOverall} 題，總得分：${score}`;
+                    nextBtn.style.display = "none";
+                };
+            }
+        }
+
+        // Handle window resizing
+        window.addEventListener('resize', drawLines);
+
+        // Start Game immediately to bypass iframe lifecycle quirks
+        startRound();
+    </script>
+</body>
+</html>
